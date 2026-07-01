@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pokésort - ポケモンソート</title>
+    <script src="data.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --poke-red: #e53935;       
+            --poke-white: #ffffff;     
+            --poke-dark: #212121;      
+            --poke-bg: #f0f2f5;        
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--poke-bg);
+            color: var(--poke-dark);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .poke-header {
+            width: 100%;
+            background-color: var(--poke-red);
+            color: white;
+            text-align: center;
+            padding: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-bottom: 8px solid var(--poke-dark);
+            position: relative;
+            margin-bottom: 25px;
+        }
+        .poke-header h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 0px var(--poke-dark);
+        }
+        .poke-header::after {
+            content: "";
+            position: absolute;
+            bottom: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 28px;
+            height: 28px;
+            background: white;
+            border: 5px solid var(--poke-dark);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+            background: var(--poke-white);
+            border-radius: 14px;
+            padding: 25px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+            border: 2px solid #ddd;
+            margin-bottom: 20px; /* フッターとの余白調整 */
+        }
+        
+        #setup-area { display: block; }
+        .setup-group { margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 10px; border: 1px solid #eee; }
+        .setup-group h3 { margin: 0 0 12px 0; font-size: 16px; border-left: 5px solid var(--poke-red); padding-left: 8px; color: var(--poke-dark); }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+        .checkbox-label { font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px; }
+        .checkbox-label input { width: 16px; height: 16px; cursor: pointer; }
+        
+        .start-btn {
+            width: 100%; padding: 16px; font-size: 18px; font-weight: bold;
+            background-color: var(--poke-red); color: white; border: none; border-radius: 8px;
+            cursor: pointer; transition: 0.2s; border-bottom: 4px solid #b71c1c;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .start-btn:hover { background-color: #ef5350; transform: translateY(-1px); }
+        .start-btn:active { transform: translateY(1px); border-bottom-width: 2px; }
+        .start-btn:disabled { background-color: #ccc; border-bottom-color: #999; cursor: not-allowed; transform: none; }
+
+        #game-area { display: none; }
+        
+        progress { width: 100%; height: 16px; border-radius: 10px; appearance: none; border: 2px solid var(--poke-dark); overflow: hidden; }
+        progress::-webkit-progress-bar { background-color: #e0e0e0; }
+        progress::-webkit-progress-value { background-color: #4caf50; }
+        .progress-text { font-size: 14px; font-weight: bold; color: #555; margin-top: 6px; text-align: center; margin-bottom: 20px;}
+
+        .controls { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 8px; flex-wrap: wrap; }
+        .control-btn {
+            flex: 1; min-width: 80px; padding: 10px 5px; font-size: 13px; font-weight: bold;
+            border: 2px solid var(--poke-dark); border-radius: 6px; cursor: pointer; background-color: #fff; transition: 0.2s;
+        }
+        .control-btn:hover { background-color: #eee; }
+        
+        .battle-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .choice-btn {
+            flex: 1; padding: 50px 10px; font-size: 22px; font-weight: bold;
+            border: 3px solid var(--poke-dark); border-radius: 12px; cursor: pointer; 
+            color: white; transition: transform 0.1s, box-shadow 0.1s; word-break: break-all;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            text-shadow: 2px 2px 3px rgba(0,0,0,0.8), -1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8);
+        }
+        .choice-btn:hover { transform: scale(1.02); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
+        .choice-btn:active { transform: scale(0.98); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        #btn-tie {
+            width: 100%; padding: 15px; font-size: 16px; font-weight: bold;
+            border: 3px solid var(--poke-dark); border-radius: 8px; cursor: pointer; 
+            background-color: #f5f5f5; color: var(--poke-dark); transition: 0.1s;
+        }
+        #btn-tie:hover { background-color: #e0e0e0; }
+
+        #result-area { display: none; }
+        #result-area h2 { text-align: center; color: var(--poke-red); font-size: 22px; margin-bottom: 5px; }
+        
+        #share-card {
+            background-color: var(--poke-white);
+            border: 4px solid var(--poke-dark);
+            border-radius: 16px;
+            padding: 20px;
+            margin: 20px auto;
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        #share-card h3 { text-align: center; margin: 0 0 15px 0; font-size: 20px; color: var(--poke-dark); border-bottom: 2px dashed #ccc; padding-bottom: 10px; }
+        .top10-row { display: flex; align-items: center; margin-bottom: 8px; border-radius: 8px; overflow: hidden; border: 2px solid var(--poke-dark); }
+        .top10-rank { width: 40px; text-align: center; font-weight: bold; font-size: 18px; padding: 8px 0; background: #fff; color: var(--poke-dark); border-right: 2px solid var(--poke-dark); flex-shrink: 0;}
+        .top10-name { flex: 1; padding: 8px 12px; font-weight: bold; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.8), -1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.8); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .share-watermark { text-align: right; font-size: 12px; color: #888; margin-top: 10px; font-weight: bold; }
+
+        .result-table { width: 100%; border-collapse: collapse; margin-top: 30px; table-layout: fixed; border: 2px solid var(--poke-dark); }
+        .result-table th, .result-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        .result-table th { background-color: var(--poke-dark); color: white; font-weight: bold; }
+        .result-table th.rank-col, .result-table td.rank-number { width: 70px; text-align: center; }
+        .result-table td.rank-number { font-weight: bold; font-size: 18px; color: var(--poke-red); background-color: #fff8f8; }
+        .result-table td.pokemon-name { font-size: 16px; font-weight: bold; background-color: white; }
+
+        /* ★フッター用のスタイル */
+        .footer-note {
+            width: 100%;
+            max-width: 600px;
+            padding: 0 15px;
+            box-sizing: border-box;
+            text-align: center;
+            font-size: 11px;
+            color: #777;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .footer-note a {
+            color: #1da1f2; /* X(Twitter)ブルー */
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .footer-note a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="poke-header">
+        <h1>POKÉSORT</h1>
+    </div>
+    
+    <div class="container">
+        <div id="setup-area">
+            <p style="text-align: center; font-weight: bold; color: #666; margin-top: 0;">お気に入りのポケモンランキングを作ろう！</p>
+            <div class="setup-group">
+                <h3>世代・カテゴリで絞り込む</h3>
+                <div class="checkbox-grid" id="gen-checkboxes"></div>
+            </div>
+            <div class="setup-group">
+                <h3>タイプで絞り込む (複数選択可)</h3>
+                <div class="checkbox-grid" id="type-checkboxes"></div>
+            </div>
+            <div id="target-count" style="text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 15px; color: var(--poke-red);">
+                対象ポケモン: 計算中...
+            </div>
+            <button class="start-btn" id="btn-start" onclick="startSorting()">ソートを開始する！</button>
+            <button class="start-btn" id="btn-load-top" style="display:none; background-color: #ff9800; border-bottom-color: #e65100; margin-top: 15px;" onclick="loadGame()">
+                📂 セーブデータから再開する
+            </button>
+        </div>
+
+        <div id="game-area">
+            <div class="progress-container">
+                <progress id="progress-bar" value="0" max="100"></progress>
+                <div class="progress-text" id="progress-text">準備中...</div>
+            </div>
+
+            <div class="controls">
+                <button class="control-btn" onclick="undo()" style="background-color: #fffde7;">↩️ 1つ戻る</button>
+                <button class="control-btn" onclick="saveGame()">💾 セーブ</button>
+                <button class="control-btn" onclick="document.location.reload()" style="background-color: #ffebee; color: #c62828;">🔄 設定に戻る</button>
+            </div>
+
+            <div id="sort-area">
+                <div class="battle-row">
+                    <button id="btn-left" class="choice-btn" onclick="choose(-1)">A</button>
+                    <button id="btn-right" class="choice-btn" onclick="choose(1)">B</button>
+                </div>
+                <button id="btn-tie" onclick="choose(0)">🤝 どちらも同じくらい好き</button>
+            </div>
+
+            <div id="result-area">
+                <h2>🎉 ランキング完成！ 🎉</h2>
+                
+                <div id="share-card">
+                    <h3>🏆 My Top 10 Pokémon 🏆</h3>
+                    <div id="share-list"></div>
+                    <div class="share-watermark">Created by Pokésort</div>
+                </div>
+                
+                <button class="start-btn" onclick="downloadImage()" style="background-color: #42a5f5; border-bottom-color: #1565c0; margin-bottom: 10px;">
+                    📸 トップ10を画像で保存 (SNS用)
+                </button>
+                
+                <button class="start-btn" onclick="copyRankingText()" style="background-color: #78909c; border-bottom-color: #546e7a; margin-bottom: 20px; font-size: 16px;">
+                    📋 全順位をテキストでコピーする
+                </button>
+
+                <h3 style="text-align: center; border-bottom: 2px solid var(--poke-dark); padding-bottom: 5px;">全順位リスト</h3>
+                <table class="result-table">
+                    <thead><tr><th class="rank-col">順位</th><th>ポケモン</th></tr></thead>
+                    <tbody id="result-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        <p>「ポケットモンスター」および「ポケモン」、「Pokémon」は任天堂株式会社・株式会社クリーチャーズ・株式会社ゲームフリークの登録商標です。<br>
+        本コンテンツは個人製作のファンサイトであり、上記の企業およびその関連企業とは一切関係ございません。</p>
+        <p>お問い合わせ・不具合報告などは下記Xアカウントにお願いします。<br>
+        <a href="https://x.com/Arazio_poke" target="_blank" rel="noopener noreferrer">＠Arazio_poke</a></p>
+    </div>
+
+    <script>
+        const TYPE_COLORS = { "ノーマル": "#9499A2", "ほのお": "#FF9A44", "みず": "#4A90DA", "くさ": "#63BC5A", "でんき": "#F6D843", "こおり": "#70CBD4", "かくとう": "#D3425F", "どく": "#B567CE", "じめん": "#D97845", "ひこう": "#8FA9DE", "エスパー": "#FA657A", "むし": "#91C12F", "いわ": "#C5B78C", "ゴースト": "#5A699F", "ドラゴン": "#0C6AC8", "あく": "#5B5465", "はがね": "#5A8EA6", "フェアリー": "#EC8FE6" };
+
+        let currentTargetPokemon = [];
+
+        function initSetup() {
+            if (typeof POKEMON_DATABASE === 'undefined') { alert("エラー: data.js が読み込めませんでした。"); return; }
+            const gens = new Set(); const types = new Set();
+            POKEMON_DATABASE.forEach(p => { gens.add(p.gen); p.types.forEach(t => types.add(t)); });
+            const numGens = []; const strGens = [];
+            gens.forEach(g => { if (g !== "" && !isNaN(g)) { numGens.push(Number(g)); } else { strGens.push(g); } });
+            numGens.sort((a, b) => a - b); strGens.sort();
+
+            const genDiv = document.getElementById('gen-checkboxes');
+            numGens.forEach(gen => { genDiv.innerHTML += `<label class="checkbox-label"><input type="checkbox" name="filter-gen" value="${gen}" checked onchange="updateTargetCount()"> 第${gen}世代</label>`; });
+            strGens.forEach(gen => { genDiv.innerHTML += `<label class="checkbox-label"><input type="checkbox" name="filter-gen" value="${gen}" checked onchange="updateTargetCount()"> ${gen}</label>`; });
+
+            const typeDiv = document.getElementById('type-checkboxes');
+            Array.from(types).sort().forEach(type => { typeDiv.innerHTML += `<label class="checkbox-label"><input type="checkbox" name="filter-type" value="${type}" checked onchange="updateTargetCount()"> ${type}</label>`; });
+
+            if (localStorage.getItem('pokesort_save_custom')) { document.getElementById('btn-load-top').style.display = 'block'; }
+            updateTargetCount();
+        }
+
+        function updateTargetCount() {
+            const checkedGens = Array.from(document.querySelectorAll('input[name="filter-gen"]:checked')).map(cb => (!isNaN(cb.value) && cb.value !== "") ? Number(cb.value) : cb.value);
+            const checkedTypes = Array.from(document.querySelectorAll('input[name="filter-type"]:checked')).map(cb => cb.value);
+            currentTargetPokemon = POKEMON_DATABASE.filter(p => checkedGens.includes(p.gen) && p.types.some(t => checkedTypes.includes(t))).map(p => p.name);
+            document.getElementById('target-count').innerText = `対象ポケモン: ${currentTargetPokemon.length} 匹`;
+            document.getElementById('btn-start').disabled = currentTargetPokemon.length < 2;
+        }
+
+        function getButtonStyleForPokemon(name) {
+            const poke = POKEMON_DATABASE.find(p => p.name === name);
+            if (!poke || !poke.types || poke.types.length === 0) return "#9e9e9e";
+            if (poke.types.length === 1) return TYPE_COLORS[poke.types[0]] || "#9e9e9e";
+            const c1 = TYPE_COLORS[poke.types[0]] || "#9e9e9e", c2 = TYPE_COLORS[poke.types[1]] || "#9e9e9e";
+            return `linear-gradient(135deg, ${c1} 0%, ${c1} 45%, ${c2} 55%, ${c2} 100%)`;
+        }
+
+        let list = [], nextList = [], leftList = null, rightList = null, mergedList = [];
+        let leftIndex = 0, rightIndex = 0, currentComparison = 0, estimatedTotal = 0, historyStack = [];
+        let rankingTextResult = "";
+
+        function startSorting() {
+            document.getElementById('setup-area').style.display = 'none'; document.getElementById('game-area').style.display = 'block';
+            initGame(currentTargetPokemon);
+        }
+
+        function initGame(targetArray) {
+            let shuffled = targetArray.slice().sort(() => Math.random() - 0.5);
+            list = shuffled.map(name => [[name]]);
+            nextList = []; leftList = null; rightList = null; mergedList = []; leftIndex = 0; rightIndex = 0; currentComparison = 0; historyStack = [];
+            estimatedTotal = Math.ceil(shuffled.length * Math.log2(shuffled.length)); if(estimatedTotal === 0) estimatedTotal = 1;
+            document.getElementById('sort-area').style.display = 'block'; document.getElementById('result-area').style.display = 'none';
+            processStep();
+        }
+
+        function processStep() {
+            if (!leftList) {
+                if (list.length >= 2) { leftList = list.shift(); rightList = list.shift(); leftIndex = 0; rightIndex = 0; }
+                else if (list.length === 1) { nextList.push(list.shift()); list = nextList; nextList = []; return processStep(); }
+                else { if (nextList.length === 1) { showResults(nextList[0]); return; } list = nextList; nextList = []; return processStep(); }
+            }
+            renderUI();
+        }
+
+        function renderUI() {
+            let leftItem = leftList[leftIndex], rightItem = rightList[rightIndex];
+            document.getElementById('btn-left').innerHTML = leftItem[0] + (leftItem.length > 1 ? `<br><span style="font-size:14px">他${leftItem.length-1}匹</span>` : "");
+            document.getElementById('btn-right').innerHTML = rightItem[0] + (rightItem.length > 1 ? `<br><span style="font-size:14px">他${rightItem.length-1}匹</span>` : "");
+            document.getElementById('btn-left').style.background = getButtonStyleForPokemon(leftItem[0]);
+            document.getElementById('btn-right').style.background = getButtonStyleForPokemon(rightItem[0]);
+            let percentage = Math.floor((currentComparison / estimatedTotal) * 100); if (percentage > 99) percentage = 99;
+            document.getElementById('progress-bar').value = percentage; document.getElementById('progress-text').innerText = `進行状況: 約 ${percentage}% (${currentComparison} 回目)`;
+        }
+
+        function choose(val) {
+            historyStack.push({ list: JSON.parse(JSON.stringify(list)), nextList: JSON.parse(JSON.stringify(nextList)), leftList: leftList ? JSON.parse(JSON.stringify(leftList)) : null, rightList: rightList ? JSON.parse(JSON.stringify(rightList)) : null, mergedList: JSON.parse(JSON.stringify(mergedList)), leftIndex, rightIndex, currentComparison });
+            if (val === -1) mergedList.push(leftList[leftIndex++]); else if (val === 1) mergedList.push(rightList[rightIndex++]); else mergedList.push([...leftList[leftIndex++], ...rightList[rightIndex++]]);
+            currentComparison++;
+            if (leftIndex === leftList.length || rightIndex === rightList.length) {
+                while (leftIndex < leftList.length) mergedList.push(leftList[leftIndex++]); while (rightIndex < rightList.length) mergedList.push(rightList[rightIndex++]);
+                nextList.push(mergedList); leftList = null; rightList = null; mergedList = [];
+            }
+            processStep();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) { alert("これ以上前には戻れません！"); return; }
+            const p = historyStack.pop(); list = p.list; nextList = p.nextList; leftList = p.leftList; rightList = p.rightList; mergedList = p.mergedList; leftIndex = p.leftIndex; rightIndex = p.rightIndex; currentComparison = p.currentComparison;
+            document.getElementById('sort-area').style.display = 'block'; document.getElementById('result-area').style.display = 'none'; renderUI();
+        }
+
+        function showResults(finalList) {
+            document.getElementById('sort-area').style.display = 'none'; document.getElementById('result-area').style.display = 'block';
+            document.getElementById('progress-bar').value = 100; document.getElementById('progress-text').innerText = "コンプリート！";
+            
+            let tbody = document.getElementById('result-tbody'); tbody.innerHTML = ""; 
+            let shareList = document.getElementById('share-list'); shareList.innerHTML = "";
+            
+            let currentRank = 1;
+            let displayCount = 0; 
+            rankingTextResult = "My Pokésort Ranking\n";
+            
+            finalList.forEach(group => {
+                group.forEach(name => {
+                    tbody.innerHTML += `<tr><td class="rank-number">${currentRank}</td><td class="pokemon-name">${name}</td></tr>`;
+                    rankingTextResult += `${currentRank}位: ${name}\n`;
+                    
+                    if (displayCount < 10) {
+                        let bgStyle = getButtonStyleForPokemon(name);
+                        let rankColor = currentRank === 1 ? "#FFD700" : currentRank === 2 ? "#C0C0C0" : currentRank === 3 ? "#CD7F32" : "#fff";
+                        shareList.innerHTML += `
+                            <div class="top10-row">
+                                <div class="top10-rank" style="background-color: ${rankColor};">${currentRank}</div>
+                                <div class="top10-name" style="background: ${bgStyle}">${name}</div>
+                            </div>
+                        `;
+                        displayCount++;
+                    }
+                });
+                currentRank += group.length;
+            });
+        }
+
+        function downloadImage() {
+            const shareCard = document.getElementById('share-card');
+            html2canvas(shareCard, { scale: 2, backgroundColor: "#ffffff", useCORS: true }).then(canvas => {
+                let link = document.createElement("a"); link.download = "pokesort_top10.png"; link.href = canvas.toDataURL("image/png"); link.click();
+            });
+        }
+        
+        function copyRankingText() {
+            if (!rankingTextResult) return;
+            const textarea = document.createElement('textarea'); textarea.value = rankingTextResult; document.body.appendChild(textarea);
+            textarea.select(); document.execCommand('copy'); document.body.removeChild(textarea);
+            alert("全順位をクリップボードにコピーしました！\nメモ帳などに貼り付けて保存してください。");
+        }
+
+        function saveGame() { localStorage.setItem('pokesort_save_custom', JSON.stringify({ list, nextList, leftList, rightList, mergedList, leftIndex, rightIndex, currentComparison, historyStack, estimatedTotal })); alert('現在の状態をセーブしました！'); }
+        
+        function loadGame() {
+            const saveStr = localStorage.getItem('pokesort_save_custom'); if (!saveStr) return;
+            try { 
+                const sd = JSON.parse(saveStr); 
+                list = sd.list; nextList = sd.nextList; leftList = sd.leftList; rightList = sd.rightList; mergedList = sd.mergedList; leftIndex = sd.leftIndex; rightIndex = sd.rightIndex; currentComparison = sd.currentComparison; historyStack = sd.historyStack || []; estimatedTotal = sd.estimatedTotal || 100;
+                
+                document.getElementById('setup-area').style.display = 'none'; 
+                document.getElementById('game-area').style.display = 'block'; 
+                
+                if (!leftList && nextList.length === 1 && list.length === 0) {
+                    showResults(nextList[0]);
+                } else {
+                    document.getElementById('sort-area').style.display = 'block'; 
+                    document.getElementById('result-area').style.display = 'none'; 
+                    renderUI(); 
+                }
+                
+                alert('データをロードして再開しました！');
+            } catch (e) { alert('データの読み込みに失敗しました。'); }
+        }
+        window.onload = initSetup;
+    </script>
+</body>
+</html>
