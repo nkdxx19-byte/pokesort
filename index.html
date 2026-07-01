@@ -66,7 +66,7 @@
             padding: 25px;
             box-shadow: 0 6px 16px rgba(0,0,0,0.08);
             border: 2px solid #ddd;
-            margin-bottom: 20px; /* フッターとの余白調整 */
+            margin-bottom: 20px;
         }
         
         #setup-area { display: block; }
@@ -145,7 +145,6 @@
         .result-table td.rank-number { font-weight: bold; font-size: 18px; color: var(--poke-red); background-color: #fff8f8; }
         .result-table td.pokemon-name { font-size: 16px; font-weight: bold; background-color: white; }
 
-        /* ★フッター用のスタイル */
         .footer-note {
             width: 100%;
             max-width: 600px;
@@ -157,14 +156,8 @@
             margin-bottom: 30px;
             line-height: 1.6;
         }
-        .footer-note a {
-            color: #1da1f2; /* X(Twitter)ブルー */
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .footer-note a:hover {
-            text-decoration: underline;
-        }
+        .footer-note a { color: #1da1f2; text-decoration: none; font-weight: bold; }
+        .footer-note a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -325,6 +318,12 @@
 
         function choose(val) {
             historyStack.push({ list: JSON.parse(JSON.stringify(list)), nextList: JSON.parse(JSON.stringify(nextList)), leftList: leftList ? JSON.parse(JSON.stringify(leftList)) : null, rightList: rightList ? JSON.parse(JSON.stringify(rightList)) : null, mergedList: JSON.parse(JSON.stringify(mergedList)), leftIndex, rightIndex, currentComparison });
+            
+            // ★容量オーバー対策：「戻れる履歴」を直近20件までに制限する
+            if (historyStack.length > 20) {
+                historyStack.shift(); // 一番古い記憶を削除
+            }
+
             if (val === -1) mergedList.push(leftList[leftIndex++]); else if (val === 1) mergedList.push(rightList[rightIndex++]); else mergedList.push([...leftList[leftIndex++], ...rightList[rightIndex++]]);
             currentComparison++;
             if (leftIndex === leftList.length || rightIndex === rightList.length) {
@@ -335,7 +334,7 @@
         }
 
         function undo() {
-            if (historyStack.length === 0) { alert("これ以上前には戻れません！"); return; }
+            if (historyStack.length === 0) { alert("これ以上前には戻れません！(記憶しているのは直近20回までです)"); return; }
             const p = historyStack.pop(); list = p.list; nextList = p.nextList; leftList = p.leftList; rightList = p.rightList; mergedList = p.mergedList; leftIndex = p.leftIndex; rightIndex = p.rightIndex; currentComparison = p.currentComparison;
             document.getElementById('sort-area').style.display = 'block'; document.getElementById('result-area').style.display = 'none'; renderUI();
         }
@@ -386,7 +385,21 @@
             alert("全順位をクリップボードにコピーしました！\nメモ帳などに貼り付けて保存してください。");
         }
 
-        function saveGame() { localStorage.setItem('pokesort_save_custom', JSON.stringify({ list, nextList, leftList, rightList, mergedList, leftIndex, rightIndex, currentComparison, historyStack, estimatedTotal })); alert('現在の状態をセーブしました！'); }
+        // ★容量オーバー対策：セーブエラー時の安全装置
+        function saveGame() { 
+            try {
+                localStorage.setItem('pokesort_save_custom', JSON.stringify({ list, nextList, leftList, rightList, mergedList, leftIndex, rightIndex, currentComparison, historyStack, estimatedTotal })); 
+                alert('現在の状態をセーブしました！'); 
+            } catch (e) {
+                // 万が一容量がいっぱいの場合は、履歴(historyStack)だけを空にして再セーブを試みる
+                try {
+                    localStorage.setItem('pokesort_save_custom', JSON.stringify({ list, nextList, leftList, rightList, mergedList, leftIndex, rightIndex, currentComparison, historyStack: [], estimatedTotal })); 
+                    alert('ブラウザの保存容量制限のため、[1つ戻る]の履歴をクリアしてセーブを完了しました！\n（次回ロードして続きからプレイすることは可能です）');
+                } catch(e2) {
+                    alert('エラー：お使いのブラウザの保存容量がいっぱいでセーブできませんでした。');
+                }
+            }
+        }
         
         function loadGame() {
             const saveStr = localStorage.getItem('pokesort_save_custom'); if (!saveStr) return;
